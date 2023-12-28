@@ -1,0 +1,19 @@
+Package: MultiTrtRBF
+Title: Individualized Multi-Treatment Response Curves Estimation using RBF-net with Shared Neurons
+Version: 0.0.0.9000
+Authors@R: 
+    c(person("Peter", "Chang", , "pchang27@ufl.edu", role = c("aut", "cre")),
+	person("Arkaprava", "Roy", , "arkaprava.roy@ufl.edu", role = "aut"))
+Description: Performs treatment effect estimation using a non-parametric modeling based on radial basis function (RBF)-nets with hidden shared neurons.
+License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
+    license
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.3
+Depends: 
+    R (>= 2.10)
+LazyData: true
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
