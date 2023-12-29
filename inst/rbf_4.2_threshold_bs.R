@@ -203,5 +203,5 @@ for (rep in 1:reps) {
 # 'Potassium', 'MAP') rownames(sig31) <- c('Threshold = 0.5', 'Threshold
 # = 0.8', 'Threshold = 1.0', 'Threshold = 1.5', 'Threshold = 2.0')
 
-sig21
-sig31
+sig21 <- cbind(sig21, colSums(results21_2))
+sig31 <- cbind(sig31, colSums(results31_2))
