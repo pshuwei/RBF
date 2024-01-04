@@ -1,7 +1,6 @@
 library(dplyr)
 library(mvtnorm)
 library(grf)
-source("../R/OthermethodsLow.R")
 source("../R/rbf.R")
 
 #getting mimic dataset for testing
@@ -95,7 +94,6 @@ results <- data.frame(#po = pos[poi],
 )
 
 #reps <- 1
-mat <- array(0, dim=c(reps,7, 3))
 
 #rownames(mat) <- c("rvmerror", "rferror", "svmerror", "OLSerror", "BART20", "BART50", "BART200")
 #for (poi in 1:length(pos)) {
