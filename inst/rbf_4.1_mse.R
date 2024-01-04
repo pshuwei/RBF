@@ -2,7 +2,6 @@
 library(mvtnorm)
 library(dplyr)
 library(grf)
-source("../R/OthermethodsLow.R")
 source("../R/rbf.R")
 
 set.seed(1)
@@ -124,28 +123,7 @@ for (rep in 1:reps) {
                      grf32 = grfest32
                    ))
   
-  
-  y1 <- y
-  #Treatment 1
-  ind <- which(z==1)
-  out1 <- OthermethodLow(x_train[ind,], y1[ind], x_test)
-  
-  #Treatment 2
-  ind <- which(z==2)
-  out2 <- OthermethodLow(x_train[ind,], y1[ind], x_test)
-  
-  #Treatment 3
-  ind <- which(z==3)
-  out3 <- OthermethodLow(x_train[ind,], y1[ind], x_test)
-  
-  ###############Calculate the errors for different treatment contrasts on test set########################################
-  
-  mat[rep,, 1] <- colMeans((out1-out2 - (f1_test - f2_test))^2) #rvmerror, rferror, svmerror, OLSerror, BART20, BART50, BART200
-  mat[rep,, 2] <- colMeans((out3-out1 - (f3_test - f1_test))^2) #rvmerror, rferror, svmerror, OLSerror, BART20, BART50, BART200
-  mat[rep,, 3] <- colMeans((out2-out3 - (f2_test - f3_test))^2) #rvmerror, rferror, svmerror, OLSerror, BART20, BART50, BART200
-  
-  print(mat[rep,,])
-  print(results[rep, ])
+  #print(results[rep, ])
   #results[30*(poi-1) + rep,4] <- 
   #results[30*(poi-1) + rep,5] <- 
   #results[30*(poi-1) + rep,6] <- 
@@ -156,11 +134,9 @@ for (rep in 1:reps) {
 
 #colMeans(results)
 apply(results, 2, median)
-apply(mat, 2:3, median)
 
-res <- rbind(apply(results, 2, median)[1:3+1],apply(results, 2, median)[1:3+4],
-             apply(mat, 2:3, median))
-rownames(res) <- c("Shared-neuron RBF", "grf", "rvmerror", "rferror", "svmerror", "OLSerror", "BART20", "BART50", "BART200")
+res <- rbind(apply(results, 2, median)[1:3+1],apply(results, 2, median)[1:3+4])
+rownames(res) <- c("Shared-neuron RBF", "grf")
 
 apply(res[-c(1:4+2),], 2, which.min)
 
