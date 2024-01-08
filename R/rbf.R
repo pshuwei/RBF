@@ -1,11 +1,11 @@
-scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, po=0.5, C = 1, Total_itr, burn) {
-  ####Finding optimal K####
-  #scaling y
+scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 1, Total_itr, burn) {
+  ####Scaling y's####
   my <- min(y)+0.5*(max(y)-min(y))
   sy  <- (max(y)-min(y))
   
   y <- (y-my)/sy
   
+  ####Finding optimal K####
   gs <- length(unique(z))
   Kls <- rep(14, gs)
   
@@ -21,10 +21,7 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, po=0
   
   K <- gs*max(Kls)+add
   
-  print(K)
-  
   p <- ncol(x)
-  p_j <- 0.5
   
   ####Functions#####
   
@@ -32,7 +29,7 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, po=0
   X_mat_fun2 <- function(X, mu) {
     X_mat <- matrix(0, nrow(X), K)
     for (k in 1:K) {
-      X_mat[,k] <- exp(-(sqrt(rowSums(t(t(X) - mu[,k])^2))/sigma_k[k])^po)
+      X_mat[,k] <- exp(-(sqrt(rowSums(t(t(X) - mu[,k])^2))/sigma_k[k])^2)
     }
     
     return(X_mat)
@@ -70,7 +67,6 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, po=0
   }
   
   #generating y-XV (for any situation, accounting for group)
-  
   y_xv_func <- function(y, X_mat, V, g) {
     # y_xv <- matrix(0, gs)
     #for (g in 1:2) {
@@ -79,6 +75,7 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, po=0
     return(y_xv)
   }
   
+  #Likelihood functions
   llhood_fun <- function(y, mu) {
     X_mat <- X_mat_fun2(x, mu)
     y_xv <-sum(sapply(1:gs, function(g) y_xv_func(y, X_mat, V, g)))
@@ -86,13 +83,14 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, po=0
     return(each - sum(mu^2/(2*(sigma_mu)^2)))
   }
   
+  #Derivative of likelihood function
   derivmu2 <- function(y, x, V, mu, K, p, gs) {
     X_mat <- X_mat_fun2(x, mu)
     score_mat <- matrix(0, p, K)
     groups <- matrix(0, gs, p)
     for (k in 1:K) {
       for (g in 1:gs) {
-        pr <- po*(sqrt(rowSums(t(t(x[index_list[[g]],]) - mu[,k])^2))/sigma_k[k])^(po-1)
+        pr <- 2*(sqrt(rowSums(t(t(x[index_list[[g]],]) - mu[,k])^2))/sigma_k[k])
         groups[g,] <- (1/sigma^2/2)*V[g,k]*colSums((t(t(x[index_list[[g]],]) - mu[,k])/sigma_k[k]^2) * c((y[index_list[[g]]] - X_mat[index_list[[g]],] %*% array(V[g,])) * (X_mat[index_list[[g]],k])*(pr*sigma_k[k]/sqrt(rowSums(t(t(x[index_list[[g]],]) - mu[,k])^2)))))
       }
       score_mat[,k] <- colSums(groups)
@@ -102,6 +100,7 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, po=0
   
   ####Initializing####
   
+  #initializing mu with the entropy weighted k-means
   mu_ini <- as.matrix(t(wskm::ewkm(x, K)$centers))+matrix(rnorm(p*K, mean=0, sd=0.01), p,K)
   
   sigma_mu <- 1#max(abs(x))
@@ -113,19 +112,19 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, po=0
     }
   }
   
+  p_j <- 0.5
   gamma_ini <- matrix(0, gs, K)
   
-  #what is the best way to initialize gamma here?
+  #Fixing some gamma_k,g = 1
   for (g in 1:gs) {
     gamma_ini[g, c(1:Kls[g]+sum(Kls[1:g-1]))] <- 1
   }
   
   X_mat <- X_mat_fun2(x, mu_ini)
   X_test_mat <- X_mat_fun2(x_test, mu_ini)
-  
   X_star_mat <- X_star_fun2(X_mat, gamma_ini)
-  
   cx <- crossprod(X_star_mat)
+  
   theta_ini <- solve(cx+1e-2*mean(diag(cx))*diag(nrow(cx))) %*% colSums(X_star_mat * y)
   theta_0 <- rep(0, K)
   
@@ -155,25 +154,19 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, po=0
   f1ls <- list()
   f2ls <- list()
   f3ls <- list()
-  #f4ls <- list()
   muls <- list()
   treatls <- list()
+  
+  #for the best linear projections
+  tau21ls <- list()
+  tau31ls <- list()
   
   Total_itr <- Total_itr
   burn <- burn #Sample before itr==burn are in burn-in period.
   
-  # eta <- 1
-  # alpha <- 3
-  # thr <- pgamma(1/sigmahat^2, alpha, eta) 
-  # while(thr > 0.10){
-  #   eta <- eta*0.95
-  #   thr <- pgamma(1/sigmahat^2, alpha, eta) 
-  # }
-  # print(eta)
-  
   K1 <- max(rowSums(gammas))
-  
   D_0inv <- diag(rep(C*(K1+1), K))
+  
   while(itr < Total_itr){
     
     start_time <- Sys.time()
@@ -187,7 +180,7 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, po=0
     }
     
     
-    #####Gibbs Sampling#####
+    #### Sampler ####
     mu0 <- (y-X_star_mat %*% theta)/sigma^2
     
     var0 <- (n/sigma^2+D_0inv[1,1])^(-1)
@@ -196,57 +189,31 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, po=0
     
     yred <- y-muinter
     
-    ###Sample theta conditional given gamma, sigma, y###
-    #theta_tilde <- solve(solve(D_0) + (1/sigma)*t(X_star_mat) %*% X_star_mat) %*% solve(D_0) %*% theta_0 + (1/sigma)*rowSums(X_star_mat *y)
-    
-    #D <- solve(solve(D_0) + (1/sigma)*x_star %*% x_star)
-    
+    #Sample theta conditional given gamma, sigma, y#
     D <- solve(D_0inv + (1/sigma^2)*crossprod(X_star_mat))
     
     D <- (D + t(D))/2
     
     theta_tilde <- D %*% ((D_0inv %*% theta_0) + (1/sigma^2)*(t(X_star_mat)%*%yred))
     
-    
-    #theta <- rnorm(10, theta_tilde, D)
     theta <- array(rmvnorm(1,mean=theta_tilde,sigma=D))
     
-    #a <- 1/rgamma(1, 1/2, C*(K+1))
-    #alpha <- 0.5
-    #eta <- 1/a
-    #gen <- rgamma(1, alpha + K/2+1/2, eta + sum(theta^2)/2+muinter^2/2)
-    
-    # a <- 1/rgamma(1, (K1+1)/2+1, sum(theta^2)/2+muinter^2/2)
-    # gen <- D_0inv[1, 1]
-    # 
-    # D_check <- dcauchy(sqrt(a),0, sqrt(C*(K1+1)), log=T)-dcauchy(sqrt(D_0inv[1,1]),0, sqrt(C*(K1+1)), log=T)
-    # D_check <- D_check + 3*(log(sqrt(a))-log(sqrt(gen)))
-    # 
-    # u <- runif(1)
-    # 
-    # if(log(u) < D_check){ 
-    #   gen <- a
-    # }
-    #D_0inv <- gen*diag(K)
-    
-    ###Sample gamma_j given gamma_-j, theta, sigma, y###
+    #Sample gamma_j given gamma_-j, theta, sigma, y#
+    #for the first 1000 iterations, only sample where gamma_kg is fixed at 1
     if(itr<1000){
       if (itr %% 1==0) {
         for (g in 1:gs) {
-          for (j in c(1:K)[-round(c(1:Kls[g]+sum(Kls[1:g-1])))]) {
+          for (j in c(1:K)[-round(c(1:Kls[g]+sum(Kls[1:g-1])))]) { 
             gamma1 <- gamma0 <- gammas
             gamma1[g, j] <- 1
             gamma0[g, j] <- 0
-            #V_star <- gamma1*theta
+            
             V_star <- V_func(gamma1, theta)
-            #V_2star <- gamma0*theta
             V_2star <- V_func(gamma0, theta)
             
             y_xvstar <- y_xv_func(yred, X_mat, V_star, g)
             y_xv2star <- y_xv_func(yred, X_mat, V_2star, g)
             
-            #c_j <- p_j*exp(-1/(2*sigma^2)*y_xvstar)
-            #d_j <- (1-p_j)*exp(-1/(2*sigma^2)*y_xv2star)
             d_jDivc_j <- (1-p_g[g])*exp(-1/(2*sigma^2)*y_xv2star + 1/(2*sigma^2)*y_xvstar)/p_g[g]
             p_j_tilde <- 1/(1+d_jDivc_j)
             gammas[g,j] <- rbinom(1, 1, p_j_tilde)
@@ -255,24 +222,21 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, po=0
         }
       }
     }
-    
+    #afterwards, sample all gamma_kg
     if(itr>=1000){
       if (itr %% 1==0) {
         for (g in 1:gs) {
-          for (j in c(1:K)) { #[-round(c(1:Kls[g]+sum(Kls[1:g-1])))]
+          for (j in c(1:K)) {
             gamma1 <- gamma0 <- gammas
             gamma1[g, j] <- 1
             gamma0[g, j] <- 0
-            #V_star <- gamma1*theta
+
             V_star <- V_func(gamma1, theta)
-            #V_2star <- gamma0*theta
             V_2star <- V_func(gamma0, theta)
             
             y_xvstar <- y_xv_func(yred, X_mat, V_star, g)
             y_xv2star <- y_xv_func(yred, X_mat, V_2star, g)
             
-            #c_j <- p_j*exp(-1/(2*sigma^2)*y_xvstar)
-            #d_j <- (1-p_j)*exp(-1/(2*sigma^2)*y_xv2star)
             d_jDivc_j <- (1-p_g[g])*exp(-1/(2*sigma^2)*y_xv2star + 1/(2*sigma^2)*y_xvstar)/p_g[g]
             p_j_tilde <- 1/(1+d_jDivc_j)
             gammas[g,j] <- rbinom(1, 1, p_j_tilde)
@@ -282,12 +246,13 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, po=0
       }
     }
     
-    
+   #updating
     V <- V_func(gammas, theta)
     X_star_mat <- X_star_fun2(X_mat, gammas)
     
     y_xv <- sum(sapply(1:gs, function(g) y_xv_func(yred, X_mat, V, g)))
     
+  #Sampling sigma  
     a <- 1/rgamma(1, 1 + n/2, y_xv/2)
     gen <- sigma
     
@@ -301,12 +266,10 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, po=0
     }
     sigma <- gen
     
-    ####Gradient MH#####
+  #Sampling mu_kp with gradient MH
     if(itr > 000){
       if (itr %% 1==0) {
         dermu <- derivmu2(yred, x, V, mu, K, p, gs)#, 0)
-        #for random walk
-        #dermu <- 0
         
         temp <- mu + dermu * epsilon1/2 + matrix(rnorm(1, sd = sqrt(epsilon1)), p, K)
         
@@ -321,25 +284,23 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, po=0
         D_check <- llhoodc - llhood + q1 - q2
         u <- runif(1)
         
-        if(log(u) < D_check){ #u < exp(D) [=ratio of likelihoods] P(log(u)<D)=P(u<exp(D))=exp(D)
+        if(log(u) < D_check){
           mu <- muc
           llhood <- llhoodc
           X_mat <- X_mat_fun2(x, mu)
           X_test_mat <- X_mat_fun2(x_test, mu)
           X_star_mat <- X_star_fun2(X_mat, gammas)
           y_xv <- sum(sapply(1:gs, function(g) y_xv_func(yred, X_mat, V, g)))
-          flag1 <- flag1 + 1 #To count number of accepts
+          flag1 <- flag1 + 1
           
         }
       }
     }
     
     ####Update the treatment list####
-    
     f1est <- sy*(X_star_est(X_test_mat, gammas, 1) %*% theta+muinter) + my
     f2est <- sy*(X_star_est(X_test_mat, gammas, 2) %*% theta+muinter) + my
     f3est <- sy*(X_star_est(X_test_mat, gammas, 3) %*% theta+muinter) + my
-    #f4est <- sy*X_star_est(X_test_mat, gammas, 4) %*% theta
     
     if(itr %% 200==0){ 
       if(itr > 000){
@@ -362,7 +323,7 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, po=0
       K1 <- K
     }
     
-    ####Store the posterior samples####
+  ####Store the posterior samples####
     if(itr > burn){
       if((itr-burn)%%skip==0){
         thetals[[(itr-burn)/skip]] <- theta
@@ -372,8 +333,10 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, po=0
         f1ls[[(itr-burn)/skip]] <- f1est
         f2ls[[(itr-burn)/skip]] <- f2est
         f3ls[[(itr-burn)/skip]] <- f3est
-        #f4ls[[(itr-burn)/skip]] <- f4est
-        #treatls[[(itr-burn)/skip]] <- trt_effect
+        
+        #getting the CATE estiamations
+        tau21ls[[(itr - burn)/skip]] <- tau21est
+        tau31ls[[(itr - burn)/skip]] <- tau31est
       }
     }
     end_time <- Sys.time()    
@@ -386,7 +349,6 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, po=0
   f1hat <- Reduce('+', f1ls)/length(f1ls)
   f2hat <- Reduce('+', f2ls)/length(f2ls)
   f3hat <- Reduce('+', f3ls)/length(f3ls)
-  #f4hat <- Reduce('+', f4ls)/length(f4ls)
   
   f_list <- list(theta_est = thetas,
                  gamma_est = gammas,
@@ -394,8 +356,9 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, po=0
                  mu_est = mus,
                  f1est = f1hat,
                  f2est = f2hat,
-                 f3est = f3hat
-                 #f4est = f4hat
+                 f3est = f3hat,
+                 tau21 = tau21ls, 
+                 tau31 = tau31ls
   )
   
   return(f_list)
