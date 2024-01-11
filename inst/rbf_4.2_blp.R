@@ -2,7 +2,7 @@ library(dplyr)
 library(mvtnorm)
 library(grf)
 source("../R/OthermethodsLow.R")
-source("../R/rbf_blp.R")
+source("../R/rbf.R")
 
 # getting mimic dataset for testing
 #dataset <- readr::read_csv("./test_data_locf.csv")[, -1]

@@ -1,5 +1,8 @@
 scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 1, Total_itr, burn) {
-  ####Scaling y's####
+  ####Number of Covariates#### 
+  p <- ncol(x)
+  
+  ####Apply min-max transformation on the response####
   my <- min(y)+0.5*(max(y)-min(y))
   sy  <- (max(y)-min(y))
   
@@ -11,21 +14,23 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 
   
   index_list <- list()
   for (g in 1:gs) {
+    #index list to group the response and predictors associated with the g-th treatment
     index_list[[g]] <- which(z == g)
     
+    #utilize Gaussian RBF kernel-based relevance vector machine (RVM)
+    #used to obtain the group-specific number of relevance vectors
     out <- try(foo <- kernlab::rvm(x[index_list[[g]],], y[index_list[[g]]], 
                                    kernel = "rbfdot"), silent = T)
     
     if(class(out)!="try-error"){Kls[g] <- foo@nRV}
   }
   
+  #set $K = G \times \max_g v_g$
   K <- gs*max(Kls)+add
-  
-  p <- ncol(x)
   
   ####Functions#####
   
-  #generating X_mat
+  #Gaussian radial function for the RBF network for the model
   X_mat_fun2 <- function(X, mu) {
     X_mat <- matrix(0, nrow(X), K)
     for (k in 1:K) {
@@ -35,7 +40,7 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 
     return(X_mat)
   }
   
-  #generating X_star_mat
+  #Gaussian radial function multiplied by the corresponding treatment group for the i-th patient, used for the posterior sampling of theta
   X_star_fun2 <- function(X_mat, gamma) {
     X_star_mat <- matrix(0, nrow(X_mat), K)
     for (g in 1:gs) {
@@ -46,6 +51,7 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 
     return(X_star_mat)
   }
   
+  #Similar function as above, but for a hypothetical different treatment group from the assigned treatment group, used to obtain CATE estimators
   X_star_est <- function(X_mat, gamma, trt) {
     X_star_e <- matrix(0, nrow(X_mat), K)
     for (k in 1:K) {
@@ -54,8 +60,7 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 
     return(X_star_e)
   }
   
-  #generating V
-  
+  #Matrix multiplication of theta and gamma, used to simplify coding
   V_func <- function(gamma, theta) {
     V_mat <- matrix(0, gs, K)
     for (g in 1:gs) {
@@ -66,7 +71,7 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 
     return(V_mat)
   }
   
-  #generating y-XV (for any situation, accounting for group)
+  #Obtain errors, notice that from the model, \epsilon_i = y_i - f_g(x_i). We can use this for gradient sampling of \mu
   y_xv_func <- function(y, X_mat, V, g) {
     # y_xv <- matrix(0, gs)
     #for (g in 1:2) {
@@ -75,7 +80,7 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 
     return(y_xv)
   }
   
-  #Likelihood functions
+  #Conditional posterior log-likelihood function of model, used for gradient sampling of \mu
   llhood_fun <- function(y, mu) {
     X_mat <- X_mat_fun2(x, mu)
     y_xv <-sum(sapply(1:gs, function(g) y_xv_func(y, X_mat, V, g)))
@@ -83,7 +88,7 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 
     return(each - sum(mu^2/(2*(sigma_mu)^2)))
   }
   
-  #Derivative of likelihood function
+  #Derivative of the above log-likelihood function
   derivmu2 <- function(y, x, V, mu, K, p, gs) {
     X_mat <- X_mat_fun2(x, mu)
     score_mat <- matrix(0, p, K)
@@ -100,11 +105,12 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 
   
   ####Initializing####
   
-  #initializing mu with the entropy weighted k-means
+  #initializing \mu with the entropy weighted k-means clustering algorithm
   mu_ini <- as.matrix(t(wskm::ewkm(x, K)$centers))+matrix(rnorm(p*K, mean=0, sd=0.01), p,K)
   
   sigma_mu <- 1#max(abs(x))
   
+  #pre-specified bandwidth parameters \sigma_k's, discussed in "Other computational settings"
   if(is.null(sigma_k)){
     for(k in 1:K){ 
       mat <- as.matrix(dist(rbind(x, mu_ini[,k])))
@@ -113,37 +119,44 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 
   }
   
   p_j <- 0.5
+  
+  #initializing \Gamma based on v_g, K
+  #creating G disjoints sets, and fixing small set of indices to be 1
   gamma_ini <- matrix(0, gs, K)
   
-  #Fixing some gamma_k,g = 1
   for (g in 1:gs) {
     gamma_ini[g, c(1:Kls[g]+sum(Kls[1:g-1]))] <- 1
   }
   
+  #initializing other values using the functions earlier created
   X_mat <- X_mat_fun2(x, mu_ini)
   X_test_mat <- X_mat_fun2(x_test, mu_ini)
   X_star_mat <- X_star_fun2(X_mat, gamma_ini)
   cx <- crossprod(X_star_mat)
-  
+  llhood <- llhood_fun(y, mu_ini) 
+
+  #initializing theta
   theta_ini <- solve(cx+1e-2*mean(diag(cx))*diag(nrow(cx))) %*% colSums(X_star_mat * y)
+  #\btheta_0 used for the full conditional of \btheta
   theta_0 <- rep(0, K)
   
+  #initializing other functions that required initializion of theta
   V <- V_func(gamma_ini, theta_ini)
-  
   y_xv <- sum(sapply(1:gs, function(g) y_xv_func(y, X_mat, V, g)))
   
+  #error variance based on an estimate of \sigma from the data 
+  #in our case is the error standard deviation from the linear regression model
   sigmahat <- sd(lm(y~x+z)$residuals)
   
+  #set the first iteration values to the be the initial values
   theta <- theta_ini
   sigma <- sigmahat
   gammas <- gamma_ini
   mu <- mu_ini
   
-  llhood <- llhood_fun(y, mu_ini) 
-  
-  itr <- 0
-  epsilon1 <- 1e-1
-  flag1 <- 0
+  itr <- 0 #iterations
+  epsilon1 <- 1e-1 #error
+  flag1 <- 0 #flag for MCMC sampling
   
   p_g <- rep(0.5,gs)
   
@@ -157,14 +170,17 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 
   muls <- list()
   treatls <- list()
   
-  #for the best linear projections
+  #Define lists to store CATE estimators
   tau21ls <- list()
   tau31ls <- list()
   
   Total_itr <- Total_itr
   burn <- burn #Sample before itr==burn are in burn-in period.
   
+  #Initialize K1 as the minimum number of bases from all groups
   K1 <- max(rowSums(gammas))
+  
+  #initialization of \sigma_d^{-2}
   D_0inv <- diag(rep(C*(K1+1), K))
   
   while(itr < Total_itr){

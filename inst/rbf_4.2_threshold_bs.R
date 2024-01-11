@@ -2,7 +2,7 @@ library(dplyr)
 library(mvtnorm)
 library(grf)
 source("../R/OthermethodsLow.R")
-source("../R/rbf_blp.R")
+source("../R/rbf.R")
 
 # getting mimic dataset for testing
 #dataset <- readr::read_csv("./test_data_locf.csv")[, -1]
@@ -53,8 +53,6 @@ group1 <- length(which(imp_base$trt_group == 1))/nrow(imp_base)
 group2 <- length(which(imp_base$trt_group == 2))/nrow(imp_base)
 group3 <- length(which(imp_base$trt_group == 3))/nrow(imp_base)
 
-# imp_base2 <- imp_base %>% sample_n(size = 171)
-
 n <- nrow(imp_base)
 
 n_group1 <- ceiling(group1 * n)
@@ -71,45 +69,6 @@ group3_sampled <- subset(imp_base, trt_group == 3) %>%
 
 mimic_train <- rbind(group1_sampled, group2_sampled, group3_sampled)
 
-# mimic_test <- anti_join(imp_base, mimic_train) results21 <-
-# data.frame(#intercept = numeric(0), sbp = numeric(0), bicar =
-# numeric(0), na = numeric(0), age = numeric(0), weight = numeric(0), k
-# = numeric(0), map = numeric(0)) results31 <- data.frame(#intercept =
-# numeric(0), sbp = numeric(0), bicar = numeric(0), na = numeric(0), age
-# = numeric(0), weight = numeric(0), k = numeric(0), map = numeric(0))
-
-results21_2 <- data.frame(intercept = numeric(0), sbp = numeric(0), bicar = numeric(0),
-    na = numeric(0), age = numeric(0), weight = numeric(0), k = numeric(0),
-    map = numeric(0))
-
-results31_2 <- data.frame(intercept = numeric(0), sbp = numeric(0), bicar = numeric(0),
-    na = numeric(0), age = numeric(0), weight = numeric(0), k = numeric(0),
-    map = numeric(0))
-
-results21_2ci <- data.frame(intercept = numeric(0), sbp = numeric(0), bicar = numeric(0),
-    na = numeric(0), age = numeric(0), weight = numeric(0), k = numeric(0),
-    map = numeric(0))
-
-results31_2ci <- data.frame(intercept = numeric(0), sbp = numeric(0), bicar = numeric(0),
-    na = numeric(0), age = numeric(0), weight = numeric(0), k = numeric(0),
-    map = numeric(0))
-
-results21_2coef <- data.frame(intercept = numeric(0), sbp = numeric(0), bicar = numeric(0),
-    na = numeric(0), age = numeric(0), weight = numeric(0), k = numeric(0),
-    map = numeric(0))
-
-results31_2coef <- data.frame(intercept = numeric(0), sbp = numeric(0), bicar = numeric(0),
-    na = numeric(0), age = numeric(0), weight = numeric(0), k = numeric(0),
-    map = numeric(0))
-
-sig21 <- data.frame(intercept = numeric(0), sbp = numeric(0), bicar = numeric(0),
-    na = numeric(0), age = numeric(0), weight = numeric(0), k = numeric(0),
-    map = numeric(0))
-
-sig31 <- data.frame(intercept = numeric(0), sbp = numeric(0), bicar = numeric(0),
-    na = numeric(0), age = numeric(0), weight = numeric(0), k = numeric(0),
-    map = numeric(0))
-
 rbf_ls <- list()
 x_ls <- list()
 
@@ -118,8 +77,7 @@ reps <- 10
 for (rep in 1:reps) {
     set.seed(rep)
 
-    mimic_bs <- mimic_train %>%
-        slice_sample(n = 172, replace = TRUE)
+    mimic_bs <- mimic_train
 
     n <- nrow(mimic_bs)
 
@@ -151,57 +109,115 @@ for (rep in 1:reps) {
     rbf_ls[[rep]] <- rbfest
 }
 
-save(rbf_ls, file = "rbf_bs_samps.Rdata")
 
-for (rep in 1:reps) {
+cutoffs <- seq(0, 0.4, by = 0.1)
 
+sig21 <- data.frame(intercept = numeric(0),
+                    sbp = numeric(0), 
+                    bicar = numeric(0), 
+                    na = numeric(0), 
+                    age = numeric(0), 
+                    weight = numeric(0), 
+                    k = numeric(0), 
+                    map = numeric(0))
+
+sig31 <- data.frame(intercept = numeric(0),
+                    sbp = numeric(0), 
+                    bicar = numeric(0), 
+                    na = numeric(0), 
+                    age = numeric(0), 
+                    weight = numeric(0), 
+                    k = numeric(0), 
+                    map = numeric(0))
+
+for (i in 1:5) {
+  results21_2 <- data.frame(intercept = numeric(0),
+                            sbp = numeric(0), 
+                            bicar = numeric(0), 
+                            na = numeric(0), 
+                            age = numeric(0), 
+                            weight = numeric(0), 
+                            k = numeric(0), 
+                            map = numeric(0))
+  
+  results31_2 <- data.frame(intercept = numeric(0),
+                            sbp = numeric(0), 
+                            bicar = numeric(0), 
+                            na = numeric(0), 
+                            age = numeric(0), 
+                            weight = numeric(0), 
+                            k = numeric(0), 
+                            map = numeric(0))
+  
+  results21_2ci <- data.frame(intercept = numeric(0),
+                              sbp = numeric(0),
+                              bicar = numeric(0),
+                              na = numeric(0),
+                              age = numeric(0),
+                              weight = numeric(0),
+                              k = numeric(0),
+                              map = numeric(0))
+  
+  results31_2ci <- data.frame(intercept = numeric(0),
+                              sbp = numeric(0),
+                              bicar = numeric(0),
+                              na = numeric(0),
+                              age = numeric(0),
+                              weight = numeric(0),
+                              k = numeric(0),
+                              map = numeric(0))
+  
+  results21_2coef <- data.frame(intercept = numeric(0),
+                                sbp = numeric(0), 
+                                bicar = numeric(0), 
+                                na = numeric(0), 
+                                age = numeric(0), 
+                                weight = numeric(0), 
+                                k = numeric(0), 
+                                map = numeric(0))
+  
+  results31_2coef <- data.frame(intercept = numeric(0),
+                                sbp = numeric(0), 
+                                bicar = numeric(0), 
+                                na = numeric(0), 
+                                age = numeric(0), 
+                                weight = numeric(0), 
+                                k = numeric(0), 
+                                map = numeric(0))
+  
+  for (rep in 1:reps) {
     samps <- 1000
-
+    
     blp21 <- data.frame(numeric(0))
     blp31 <- data.frame(numeric(0))
-
+    
     for (samp in 1:samps) {
-        blp21 <- rbind(blp21, t(summary(lm(rbf_ls[[rep]][[1]][[samp]] ~ x_ls[[rep]]))$coefficients[,
-            1]))
-        blp31 <- rbind(blp31, t(summary(lm(rbf_ls[[rep]][[2]][[samp]] ~ x_ls[[rep]]))$coefficients[,
-            1]))
+      blp21 <- rbind(blp21, t(summary(lm(rbf_ls[[rep]][[1]][[samp]]  ~ x_ls[[rep]]))$coefficients[,1]))
+      blp31 <- rbind(blp31, t(summary(lm(rbf_ls[[rep]][[2]][[samp]]  ~ x_ls[[rep]]))$coefficients[,1]))
     }
-
-    # thresholding
-    threshold <- 0
-
-    blp21 <- apply(blp21, 2, function(x) ifelse(abs(x) < threshold, 0, x))
-    blp31 <- apply(blp31, 2, function(x) ifelse(abs(x) < threshold, 0, x))
-
-
+    
+    #thresholding
+    threshold <- cutoffs[i]
+    
+    blp21 <- apply(blp21, 2, function(x) ifelse(abs(x) < threshold, 0 , x))
+    blp31 <- apply(blp31, 2, function(x) ifelse(abs(x) < threshold, 0 , x))
+    
+    
     for (j in 1:8) {
-        results21_2coef[rep, ] <- colMeans(blp21)
-
-        quantiles <- quantile(blp21[, j], c(0.025, 0.975))
-        results21_2[rep, j] <- ifelse(quantiles[1] <= 0 & 0 <= quantiles[2],
-            0, 1)
-        results21_2ci[rep, j] <- paste("(", round(quantiles[1], 3), ",", round(quantiles[2],
-            3), ")", sep = "")
-
-        results31_2coef[rep, ] <- colMeans(blp31)
-
-        quantiles <- quantile(blp31[, j], c(0.025, 0.975))
-        # print(quantiles)
-        results31_2[rep, j] <- ifelse(quantiles[1] <= 0 & 0 <= quantiles[2],
-            0, 1)
-        results31_2ci[rep, j] <- paste("(", round(quantiles[1], 3), ",", round(quantiles[2],
-            3), ")", sep = "")
+      results21_2coef[rep,] <- colMeans(blp21)
+      
+      quantiles <- quantile(blp21[,j], c(0.025, 0.975))
+      results21_2[rep, j] <- ifelse(quantiles[1] <= 0 & 0 <= quantiles[2], 0, 1)
+      results21_2ci[rep, j] <- paste("(", round(quantiles[1], 3), ",", round(quantiles[2], 3), ")", sep = "")
+      
+      results31_2coef[rep,] <- colMeans(blp31)
+      
+      quantiles <- quantile(blp31[,j], c(0.025, 0.975))
+      results31_2[rep, j] <- ifelse(quantiles[1] <= 0 & 0 <= quantiles[2], 0, 1)
+      results31_2ci[rep, j] <- paste("(", round(quantiles[1], 3), ",", round(quantiles[2], 3), ")", sep = "")
     }
+  }
+  
+  sig21 <- rbind(sig21, colSums(results21_2))
+  sig31 <- rbind(sig31, colSums(results31_2))
 }
-
-# sig21 <- rbind(sig21, colSums(results21_2)) colnames(sig21) <-
-# c('Intercept', 'SBP', 'Bicarbonate', 'Sodium', 'Age', 'Weight',
-# 'Potassium', 'MAP') rownames(sig21) <- c('Threshold = 0.5', 'Threshold
-# = 0.8', 'Threshold = 1.0', 'Threshold = 1.5', 'Threshold = 2.0') sig31
-# <- rbind(sig31, colSums(results31_2)) colnames(sig31) <-
-# c('Intercept', 'SBP', 'Bicarbonate', 'Sodium', 'Age', 'Weight',
-# 'Potassium', 'MAP') rownames(sig31) <- c('Threshold = 0.5', 'Threshold
-# = 0.8', 'Threshold = 1.0', 'Threshold = 1.5', 'Threshold = 2.0')
-
-sig21 <- cbind(sig21, colSums(results21_2))
-sig31 <- cbind(sig31, colSums(results31_2))
