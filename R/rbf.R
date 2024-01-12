@@ -1,4 +1,4 @@
-scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 1, Total_itr, burn) {
+scheme_mult <- function(y, x, x_test, z, gs, add, skip=5, sigma = NULL, sigma_k=NULL, C = 1, Total_itr, burn) {
   ####Number of Covariates#### 
   p <- ncol(x)
   
@@ -133,7 +133,7 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 
   X_test_mat <- X_mat_fun2(x_test, mu_ini)
   X_star_mat <- X_star_fun2(X_mat, gamma_ini)
   cx <- crossprod(X_star_mat)
-  llhood <- llhood_fun(y, mu_ini) 
+  
 
   #initializing theta
   theta_ini <- solve(cx+1e-2*mean(diag(cx))*diag(nrow(cx))) %*% colSums(X_star_mat * y)
@@ -143,6 +143,7 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 
   #initializing other functions that required initializion of theta
   V <- V_func(gamma_ini, theta_ini)
   y_xv <- sum(sapply(1:gs, function(g) y_xv_func(y, X_mat, V, g)))
+  llhood <- llhood_fun(y, mu_ini) 
   
   #error variance based on an estimate of \sigma from the data 
   #in our case is the error standard deviation from the linear regression model
@@ -305,7 +306,7 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 
         #Set the update as the candidate value
         muc <- temp
         #log-likelihood of the candidate excluding the part not involving the candidate
-        llhoodc <- llhood_fun(yred, muc
+        llhoodc <- llhood_fun(yred, muc)
         #log-likelihood of the current value excluding the part not involving the current value
         llhood <- llhood_fun(yred, mu)
         
@@ -358,6 +359,10 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 
     f1est <- sy*(X_star_est(X_test_mat, gammas, 1) %*% theta+alpha) + my
     f2est <- sy*(X_star_est(X_test_mat, gammas, 2) %*% theta+alpha) + my
     f3est <- sy*(X_star_est(X_test_mat, gammas, 3) %*% theta+alpha) + my
+    
+    ####Calculate the CATE estimators####
+    tau21est <- f2est - f1est
+    tau31est <- f3est - f1est
     
     ####Store the posterior samples####
     if(itr > burn){
