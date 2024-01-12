@@ -197,25 +197,35 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 
     
     
     #### Sampler ####
-    mu0 <- (y-X_star_mat %*% theta)/sigma^2
+    #Sample \alpha (the intercept)
+    alpha0 <- (y-X_star_mat %*% theta)/sigma^2
     
-    var0 <- (n/sigma^2+D_0inv[1,1])^(-1)
+    sigma0 <- (n/sigma^2+D_0inv[1,1])^(-1)
     
-    muinter <- rnorm(1, mu0*var0, sqrt(var0))
+    alpha <- rnorm(1, alpha0*sigma0, sqrt(sigma0))
     
-    yred <- y-muinter
+    yred <- y-alpha #the residuals R
     
-    #Sample theta conditional given gamma, sigma, y#
-    D <- solve(D_0inv + (1/sigma^2)*crossprod(X_star_mat))
+    #Sample \theta conditional given gamma, sigma, y#
     
-    D <- (D + t(D))/2
+    ##find which columns contain only 0, sample from prior
+    zero_column_indices <- which(colSums(X_star_mat) == 0)
     
-    theta_tilde <- D %*% ((D_0inv %*% theta_0) + (1/sigma^2)*(t(X_star_mat)%*%yred))
+    is_zero_column <- seq_len(K) %in% zero_column_indices
     
-    theta <- array(rmvnorm(1,mean=theta_tilde,sigma=D))
+    theta[is_zero_column] <- rnorm(sum(is_zero_column), mean = 0, sd = D_0inv[1, 1]^-1)
+    
+    ##sample from full conditional for non-zero columns
+    D <- solve(D_0inv[!is_zero_column, !is_zero_column] + (1/sigma^2)*crossprod(X_star_mat[, !is_zero_column]))
+    
+    D  <- (D + t(D))/2
+    
+    theta_tilde <- D %*% ((D_0inv[!is_zero_column, !is_zero_column] %*% theta_0[ !is_zero_column]) + (1/sigma^2)*(t(X_star_mat[, !is_zero_column])%*%yred))
+    
+    theta[!is_zero_column] <- array(rmvnorm(1,mean=theta_tilde,sigma=D))
     
     #Sample gamma_j given gamma_-j, theta, sigma, y#
-    #for the first 1000 iterations, only sample where gamma_kg is fixed at 1
+    ##for the first 1000 iterations, only sample where gamma_kg is fixed at 1
     if(itr<1000){
       if (itr %% 1==0) {
         for (g in 1:gs) {
@@ -238,7 +248,7 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 
         }
       }
     }
-    #afterwards, sample all gamma_kg
+    ##afterwards, sample all gamma_kg
     if(itr>=1000){
       if (itr %% 1==0) {
         for (g in 1:gs) {
@@ -262,62 +272,67 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 
       }
     }
     
-   #updating
+    #updating certain values with new samples
     V <- V_func(gammas, theta)
     X_star_mat <- X_star_fun2(X_mat, gammas)
     
     y_xv <- sum(sapply(1:gs, function(g) y_xv_func(yred, X_mat, V, g)))
     
-  #Sampling sigma  
+    #Sampling sigma  
     a <- 1/rgamma(1, 1 + n/2, y_xv/2)
     gen <- sigma
     
+    ##Log transformation of the acceptance probability ratio
     D_check <- dcauchy(sqrt(a),0, sigmahat, log=T)-dcauchy(sigma,0, sigmahat, log=T)
+    ##Log transformation of the Jacobian adjustment
     D_check <- D_check + 3*(log(sqrt(a))-log(sqrt(gen)))
     
     u <- runif(1)
     
+    ##Acceptance step
     if(log(u) < D_check){ 
       gen <- sqrt(a)
     }
     sigma <- gen
     
-  #Sampling mu_kp with gradient MH
+    #Sampling mu_kp with gradient MH
     if(itr > 000){
       if (itr %% 1==0) {
+        #generate derivative
         dermu <- derivmu2(yred, x, V, mu, K, p, gs)#, 0)
-        
+        #The update is like ’gradient-based update from the current value + some noise’
         temp <- mu + dermu * epsilon1/2 + matrix(rnorm(1, sd = sqrt(epsilon1)), p, K)
-        
+        #Set the update as the candidate value
         muc <- temp
-        
-        llhoodc <- llhood_fun(yred, muc)
-        
+        #log-likelihood of the candidate excluding the part not involving the candidate
+        llhoodc <- llhood_fun(yred, muc
+        #log-likelihood of the current value excluding the part not involving the current value
         llhood <- llhood_fun(yred, mu)
         
+        #log{q(current value|candidate)}
         q1 <- -sum((mu-derivmu2(yred, x, V, temp, K, p, gs)* epsilon1/2- temp)^2/epsilon1) /2#, 0)
+        #log{q(candidate|current value)}
         q2 <- -sum((temp-derivmu2(yred, x, V, mu, K, p, gs) * epsilon1/2- mu)^2/epsilon1) /2#, 0)
+        
+        ##Log transformation of the acceptance probability ratio
         D_check <- llhoodc - llhood + q1 - q2
         u <- runif(1)
         
         if(log(u) < D_check){
           mu <- muc
-          llhood <- llhoodc
+          llhood <- llhoodc #change the candidate value to the current value
+          # Then update the function values based on the new samples
           X_mat <- X_mat_fun2(x, mu)
           X_test_mat <- X_mat_fun2(x_test, mu)
           X_star_mat <- X_star_fun2(X_mat, gammas)
           y_xv <- sum(sapply(1:gs, function(g) y_xv_func(yred, X_mat, V, g)))
-          flag1 <- flag1 + 1
+          flag1 <- flag1 + 1 #To count number of accepts
           
         }
       }
     }
     
-    ####Update the treatment list####
-    f1est <- sy*(X_star_est(X_test_mat, gammas, 1) %*% theta+muinter) + my
-    f2est <- sy*(X_star_est(X_test_mat, gammas, 2) %*% theta+muinter) + my
-    f3est <- sy*(X_star_est(X_test_mat, gammas, 3) %*% theta+muinter) + my
-    
+    #Keep the acceptance rate at an optimal rate (~0.6)
     if(itr %% 200==0){ 
       if(itr > 000){
         #Auto-tuning step
@@ -339,7 +354,12 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 
       K1 <- K
     }
     
-  ####Store the posterior samples####
+    ####Update the treatment list####
+    f1est <- sy*(X_star_est(X_test_mat, gammas, 1) %*% theta+alpha) + my
+    f2est <- sy*(X_star_est(X_test_mat, gammas, 2) %*% theta+alpha) + my
+    f3est <- sy*(X_star_est(X_test_mat, gammas, 3) %*% theta+alpha) + my
+    
+    ####Store the posterior samples####
     if(itr > burn){
       if((itr-burn)%%skip==0){
         thetals[[(itr-burn)/skip]] <- theta
@@ -350,7 +370,7 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 
         f2ls[[(itr-burn)/skip]] <- f2est
         f3ls[[(itr-burn)/skip]] <- f3est
         
-        #getting the CATE estiamations
+        #getting the CATE estimations samples
         tau21ls[[(itr - burn)/skip]] <- tau21est
         tau31ls[[(itr - burn)/skip]] <- tau31est
       }
@@ -358,6 +378,7 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 
     end_time <- Sys.time()    
   }
   
+  #Get the average sample based on all iterations
   thetas <- Reduce('+', thetals)/length(thetals)
   gammas <- Reduce('+', gammals)/length(gammals)
   sigmas <- Reduce('+', sigmals)/length(sigmals)
@@ -366,6 +387,7 @@ scheme_mult <- function(y, x, x_test, z, gs, sy, add, skip=5, sigma_k=NULL, C = 
   f2hat <- Reduce('+', f2ls)/length(f2ls)
   f3hat <- Reduce('+', f3ls)/length(f3ls)
   
+  #Store final samples in list
   f_list <- list(theta_est = thetas,
                  gamma_est = gammas,
                  sigma_est = sigmas,
