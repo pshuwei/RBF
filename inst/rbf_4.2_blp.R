@@ -92,17 +92,19 @@ results21 <- results31 <- results21ci <- results31ci <- results21coef <- results
 reps <- 10
 
 for (rep in 1:reps) {
-    set.seed(rep)
+  set.seed(rep)
+  
+  #Generating outcomes
+  y1 <- rnorm(length(which(mimic_train$trt_group == 1)), mean = f1, sd = 1)
+  y2 <- rnorm(length(which(mimic_train$trt_group == 2)), mean = f2, sd = 1)
+  y3 <- rnorm(length(which(mimic_train$trt_group == 3)), mean = f3, sd = 1)
 
-    y1 <- rnorm(n_group1, mean = f1, sd = 1)
-    y2 <- rnorm(n_group2, mean = f2, sd = 1)
-    y3 <- rnorm(n_group3, mean = f3, sd = 1)
+  y <- c(y1, y2, y3)
 
-    y <- c(y1, y2, y3)
+  #Getting RBF results
+  rbfest <- scheme_mult(y, x, x, z, gs = 3, add = 0, skip = 10, sigma = NULL, sigma_k = NULL,C = 16, Total_itr = 15000, burn = 5000)
 
-    rbfest <- scheme_mult(y, x, x, z, gs = 3, add = 0, skip = 10, sigma = NULL, sigma_k = NULL,C = 16, Total_itr = 15000, burn = 5000)
-
-    rbf_ls[[rep]] <- rbfest
+  rbf_ls[[rep]] <- rbfest
 
 }
 
