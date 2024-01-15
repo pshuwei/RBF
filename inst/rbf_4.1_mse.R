@@ -7,7 +7,7 @@ source("../R/rbf.R")
 set.seed(1)
 
 n = 180 #for three groups
-#n = 200 #for four groups
+
 
 x <-matrix(runif(5*n),nrow=n)
 
@@ -20,7 +20,6 @@ x_train <- x[train_indices,]
 #x_test <- x[train_indices,] #for the estimated values of the training set
 x_test <- x[-train_indices,] #for the predicted values of the testing set
 
-x <- x_train
 n <- train_proportion*n
 
 f10 <- 10*sin(pi*x[,1]*x[,2])+20*(x[,3]-0.5)^2+(10*x[,4]+5*x[,5])
@@ -36,9 +35,11 @@ f3 <- (f20+f30)/2 + f10/3
 z <- rep(seq(1:3), each = n/3)
 gs <- length(unique(z))
 
+#Repetitions
 reps <- 10
-pos <- 2
-results <- data.frame(#po = pos[poi],
+
+#store results
+results <- data.frame(
   rep = numeric(0),
   #add = adds[j],
   rbf21 = numeric(0),
@@ -52,69 +53,58 @@ results <- data.frame(#po = pos[poi],
 #reps <- 1
 mat <- array(0, dim=c(reps,7, 3))
 
-#rownames(mat) <- c("rvmerror", "rferror", "svmerror", "OLSerror", "BART20", "BART50", "BART200")
+
 #for (poi in 1:length(pos)) {
 for (rep in 1:reps) {
-  #for (j in 1:length(adds)) {
-  #set.seed(123)
-  #print(pos[poi])
   print(rep)
-  #print(adds[j])
   
   set.seed(rep)
   
-  #results[30*(poi-1) + rep,1] <- pos[poi]
-  #results[30*(poi-1) + rep,2] <- rep
-  
+  #Generating outcomes from Normal(f_g, 1)
   y1 <- rnorm(n/gs, mean = f1, sd = 1)
   y2 <- rnorm(n/gs, mean = f2, sd = 1)
   y3 <- rnorm(n/gs, mean = f3, sd = 1)
-  #y4 <- rnorm(n/gs, mean = f4, sd = 2)
   
+  #Store results as a vector
   y <- c(y1, y2, y3)
-  
-  
-  #results[30*(poi-1) + rep, 3] <- adds[j]
-  
+
   x <- x_train
-  rbfest <- scheme_mult(y, x, x_test, z, gs = 3, sy, add=0, skip = 10, sigma_k = NULL, po=2, C = 16, Total_itr = 15000, burn = 5000)
+  
+  #Run the function on the training set and get the estimated treatment outcomes \hat{f_g} for the testing set
+  rbfest <- scheme_mult(y, x, x_test, z, gs = 3, sy, skip = 10, sigma_k = NULL, C = 16, Total_itr = 15000, burn = 5000)
   x <- x_test
   
-  #out <- BART::mbart(x_train, z, x_test, printevery=10000L)
-  #emat <- matrix(colMeans(out$yhat.test), nrow = 3)
-  
-  #rbf mse est
-  
-  # f1_test <- 10*sin(pi*x[,1]*x[,2])+20*(x[,3]-0.5)^2+(10*x[,4]+5*x[,5])
-  # f2_test <- f1_test/2 + (5*x[,2])+(1+x[,1]^2)+ 2*x[,3]+exp(x[,4]) + x[,5]
-  # f3_test <- f2_test/3+0.1*exp(4*x[,1]) + 4/(1 + exp(-20*(x[,2] - 0.5))) + 3*x[,3]^2 + 2*x[,4] + x[,5]      #f4_test <- (5*x[,2])/(1+x[,1]^2)+3*x[,3]+2*x[,4]+x[,5]
-  
+  #individual regression functions
   f10 <- 10*sin(pi*x[,1]*x[,2])+20*(x[,3]-0.5)^2+(10*x[,4]+5*x[,5])
   f20 <- (5*x[,2])/(1+x[,1]^2)+ 5*sin(x[,3]*x[,4]) + x[,5] #2*x[,3]+(x[,4]) + x[,5]
   f30 <- 0.1*exp(4*x[,1]) + 4/(1 + exp(-20*(x[,2] - 0.5))) + 3*x[,3]^2 + 2*x[,4] + x[,5]
   
+  #Get the "actual" treatment outcomes of the test set
   f1_test <- f10+f20
   f2_test <- (f10+f20)/2+f30/3
   f3_test <- (f20+f30)/2 + f10/3
   
+  #Get MSE of the actual CATE estimator versus the estimated CATE estimator from our RBF method
   rbfest21 <- mean(((rbfest$f2est-rbfest$f1est) - (f2_test-f1_test))^2)
   rbfest31 <- mean(((rbfest$f3est-rbfest$f1est) - (f3_test-f1_test))^2)
-  rbfest32 <- mean(((rbfest$f3est-rbfest$f2est) - (f3_test-f2_test))^2)
-  
-  #grf mse est
+
+  #TO do the same process for the Causal Random Forest
+  ## Training the causal forest
   mc.forest <- multi_arm_causal_forest(x_train, y, as.factor(z))
+  ## Testing the causal forest
   mc.pred <- predict(object = mc.forest, newdata = x_test, drop = TRUE)
   
+  ##Obtaining the estimated CATE estimators 
   tau.hat <- matrix(mc.pred$predictions, ncol=2)
   
+  #Get MSE of the actual CATE estimator versus the estimated CATE estimator from the casual forest method
   grfest21 <- mean((tau.hat[,1] - (f2_test-f1_test))^2)
   grfest31 <- mean((tau.hat[,2] - (f3_test-f1_test))^2)
   grfest32 <- mean(((tau.hat[,2]-tau.hat[,1])- (f3_test-f2_test))^2)
   
   results <- rbind(results, 
-                   data.frame(#po = pos[poi],
+                   data.frame(
                      rep = rep,
-                     #add = adds[j],
                      rbf21 = rbfest21,
                      rbf31 = rbfest31,
                      rbf32 = rbfest32,
@@ -123,20 +113,15 @@ for (rep in 1:reps) {
                      grf32 = grfest32
                    ))
   
-  #print(results[rep, ])
-  #results[30*(poi-1) + rep,4] <- 
-  #results[30*(poi-1) + rep,5] <- 
-  #results[30*(poi-1) + rep,6] <- 
-  #results[rep,5] <- mean((rbfest$f4est - f4_test)^2)
 }
-#}
-#}
 
-#colMeans(results)
+#Obtaining the median of MSE of the our RBF versus the Causal Forest
 apply(results, 2, median)
 
+#Store the results
 res <- rbind(apply(results, 2, median)[1:3+1],apply(results, 2, median)[1:3+4])
-rownames(res) <- c("Shared-neuron RBF", "grf")
+rownames(res) <- c("Shared-neuron RBF", "Casual Forest")
 
+#Gives us the lowest MSE between the 2
 apply(res[-c(1:4+2),], 2, which.min)
 

@@ -78,7 +78,7 @@ f30 <- 0.1 * exp(4 * x[, 1]) + 4/(1 + exp(-20 * (x[, 2] - 0.5))) + 3 * x[,
 f1 <- f10 + f20  #/2
 f2 <- (f10 + f20)/2 + f30/3
 f3 <- (f20 + f30)/2 + f10/3
-# f4 <- (5*x[,2])/(1+x[,1]^2)+3*x[,3]+2*x[,4]+x[,5]
+
 
 #Store RBF results for multiple repetitions
 rbf_ls <- list()
