@@ -65,7 +65,7 @@ for (rep in 1:reps) {
   y2 <- rnorm(n/gs, mean = f2, sd = 1)
   y3 <- rnorm(n/gs, mean = f3, sd = 1)
   
-  #Store results as a vector
+  #Store all outcomes as a vector
   y <- c(y1, y2, y3)
 
   x <- x_train
