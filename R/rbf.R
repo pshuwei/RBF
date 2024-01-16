@@ -136,6 +136,7 @@ scheme_mult <- function(y, x, x_test, z, gs, add, skip=5, sigma = NULL, sigma_k=
   
 
   #initializing theta
+  #using LSE for theta with some small adjustments
   theta_ini <- solve(cx+1e-2*mean(diag(cx))*diag(nrow(cx))) %*% colSums(X_star_mat * y)
   #\btheta_0 used for the full conditional of \btheta
   theta_0 <- rep(0, K)
@@ -249,7 +250,7 @@ scheme_mult <- function(y, x, x_test, z, gs, add, skip=5, sigma = NULL, sigma_k=
         }
       }
     }
-    ##afterwards, sample all gamma_kg
+    ##afterwards, sample gamma_kg for all k
     if(itr>=1000){
       if (itr %% 1==0) {
         for (g in 1:gs) {
