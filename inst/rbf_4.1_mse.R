@@ -71,7 +71,7 @@ for (rep in 1:reps) {
   x <- x_train
   
   #Run the function on the training set and get the estimated treatment outcomes \hat{f_g} for the testing set
-  rbfest <- scheme_mult(y, x, x_test, z, gs = 3, sy, skip = 10, sigma_k = NULL, C = 16, Total_itr = 15000, burn = 5000)
+  rbfest <- scheme_mult(y, x, x_test, z, gs = 3, sy, add = 0, skip = 10, sigma_k = NULL, C = 16, Total_itr = 15000, burn = 5000)
   x <- x_test
   
   #individual regression functions
