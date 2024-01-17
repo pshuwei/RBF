@@ -144,7 +144,6 @@ scheme_mult <- function(y, x, x_test, z, gs, add, skip=5, sigma = NULL, sigma_k=
   #initializing other functions that required initializion of theta
   V <- V_func(gamma_ini, theta_ini)
   y_xv <- sum(sapply(1:gs, function(g) y_xv_func(y, X_mat, V, g)))
-  llhood <- llhood_fun(y, mu_ini) 
   
   #error variance based on an estimate of \sigma from the data 
   #in our case is the error standard deviation from the linear regression model
@@ -155,6 +154,8 @@ scheme_mult <- function(y, x, x_test, z, gs, add, skip=5, sigma = NULL, sigma_k=
   sigma <- sigmahat
   gammas <- gamma_ini
   mu <- mu_ini
+  
+  llhood <- llhood_fun(y, mu_ini) 
   
   itr <- 0 #iterations
   epsilon1 <- 1e-1 #error
