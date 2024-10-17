@@ -100,30 +100,14 @@ for (rep in 1:reps) {
   rbf_ls[[rep]] <- rbfest
 }
 
-cutoffs <- c(0.5, 0.8, 1, 1.5, 2)
+cutoffs <- seq(0.1, 2, by = 0.1)
 
-#Dataframes to get how many repitions out of total repetitions is a predictor significant
-sig21 <- data.frame(intercept = numeric(0),
-                    sbp = numeric(0), 
-                    bicar = numeric(0), 
-                    na = numeric(0), 
-                    age = numeric(0), 
-                    weight = numeric(0), 
-                    k = numeric(0), 
-                    map = numeric(0))
-
-sig31 <- data.frame(intercept = numeric(0),
-                    sbp = numeric(0), 
-                    bicar = numeric(0), 
-                    na = numeric(0), 
-                    age = numeric(0), 
-                    weight = numeric(0), 
-                    k = numeric(0), 
-                    map = numeric(0))
+#Array to get how many repetitions out of total repetitions is a predictor significant (dimensions are number of cutoffs, number of replicated datasets, and predictors including the intercept)
+cutoff21 <- array(0, dim=c(length(cutoffs),length(rbf_ls), ncol(x) + 1))
+cutoff31 <- array(0, dim=c(length(cutoffs),length(rbf_ls), ncol(x) + 1))
 
 #Getting the threshold results
 for (i in 1:length(cutoffs)) {#For each cutoff
-  results21 <- results31 <- results21ci <- results31ci <- results21coef <- results31coef <- data.frame(intercept = numeric(0), sbp = numeric(0), bicar = numeric(0), na = numeric(0), age = numeric(0), weight = numeric(0), k = numeric(0), map = numeric(0))
   
   for (rep in 1:reps) {
     samps <- 1000
@@ -134,42 +118,32 @@ for (i in 1:length(cutoffs)) {#For each cutoff
     # Initial BLP results without cutoffs
     for (samp in 1:samps) {
       #BLP estimates for tau_21
-      blp21 <- rbind(blp21, t(summary(lm(rbf_ls[[rep]][["tau21"]][[samp]] ~ x))$coefficients[,1]))
+      blp21 <- rbind(blp21, t(summary(lm(rbf_ls[[rep]][["tau21"]][[samp]]  ~ x))$coefficients[,1]))
       #BLP estimates for tau_31
-      blp31 <- rbind(blp31, t(summary(lm(rbf_ls[[rep]][["tau31"]][[samp]] ~ x))$coefficients[, 1]))
+      blp31 <- rbind(blp31, t(summary(lm(rbf_ls[[rep]][["tau31"]][[samp]]  ~ x))$coefficients[,1]))
     }
     
-    #thresholding
+    #Thresholding
     threshold <- cutoffs[i]
     
+    #Apply threshold to BLP coefficients
     blp21 <- apply(blp21, 2, function(x) ifelse(abs(x) < threshold, 0 , x))
     blp31 <- apply(blp31, 2, function(x) ifelse(abs(x) < threshold, 0 , x))
     
-    #Get the BLP results given the cutoffs
-    for (j in 1:8) {
+    for (j in 1:(ncol(x) + 1)) {
       #Getting results for inference of \tau_21
-      #Average BLP coefficient
-      results21coef[rep, ] <- colMeans(blp21)
-      #Get the posterior credible intervals
-      quantiles <- quantile(blp21[, j], c(0.025, 0.975))
-      #Store whether the coefficient is significant
-      results21[rep, j] <- ifelse(quantiles[1] <= 0 & 0 <= quantiles[2],
-                                  0, 1)
-      #Obtain the actual credible intervals
-      results21ci[rep, j] <- paste("(", round(quantiles[1], 3), ",", round(quantiles[2], 3), ")", sep = "")
+      #Proportion of BLP projections falling outside the interval (s_{p,t} values)
+      cutoff21[i, rep, j] <- sum(abs(blp21[,j]) > threshold)/nrow(blp21)
       
       #Repeat for \tau_31
-      results31coef[rep, ] <- colMeans(blp31)
-      quantiles <- quantile(blp31[, j], c(0.025, 0.975))
-      results31[rep, j] <- ifelse(quantiles[1] <= 0 & 0 <= quantiles[2],
-                                  0, 1)
-      results31ci[rep, j] <- paste("(", round(quantiles[1], 3), ",", round(quantiles[2], 3), ")", sep = "")
+      cutoff31[i, rep, j]  <- sum(abs(blp31[,j]) > threshold)/nrow(blp31)
     }
   }
-  
-  #Store the number of significant repetitions for each cutoff
-  ##for \tau_21
-  sig21 <- rbind(sig21, colSums(results21))
-  ##for \tau_31
-  sig31 <- rbind(sig31, colSums(results31))
 }
+
+#Get the average s_{p,t} values across all replicated datasets
+res21 <- apply(cutoff21, c(1, 3), mean)
+res31 <- apply(cutoff31, c(1, 3), mean)
+
+res21
+res31
