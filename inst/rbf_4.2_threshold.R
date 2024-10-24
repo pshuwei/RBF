@@ -145,5 +145,13 @@ for (i in 1:length(cutoffs)) {#For each cutoff
 res21 <- apply(cutoff21, c(1, 3), mean)
 res31 <- apply(cutoff31, c(1, 3), mean)
 
-res21
-res31
+#Compile the results as presented in Simulation 4.2
+row_names <- cutoffs
+
+rownames(res21) <- rownames(res31) <- row_names
+colnames(res21) <- colnames(res31) <- c("Intercept", "SBP", "Bicarbonate", "Sodium", "Age", "Weight", "Potassium", "MAP")
+
+tab_4.2_threshold <- rbind(res31, res21)
+rownames(tab_4.2_threshold) <- c(cutoffs, cutoffs)
+
+View(tab_4.2_threshold)

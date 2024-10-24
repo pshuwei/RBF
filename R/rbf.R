@@ -176,6 +176,8 @@ scheme_mult <- function(y, x, x_test, z, gs, add, skip=5, sigma = NULL, sigma_k=
   #Define lists to store CATE estimators
   tau21ls <- list()
   tau31ls <- list()
+  tau32ls <- list()
+  tau23ls <- list()
   
   Total_itr <- Total_itr
   burn <- burn #Sample before itr==burn are in burn-in period.
@@ -365,6 +367,8 @@ scheme_mult <- function(y, x, x_test, z, gs, add, skip=5, sigma = NULL, sigma_k=
     ####Calculate the CATE estimators####
     tau21est <- f2est - f1est
     tau31est <- f3est - f1est
+    tau32est <- f3est - f2est
+    tau23est <- f2est - f3est
     
     ####Store the posterior samples####
     if(itr > burn){
@@ -380,6 +384,8 @@ scheme_mult <- function(y, x, x_test, z, gs, add, skip=5, sigma = NULL, sigma_k=
         #getting the CATE estimations samples
         tau21ls[[(itr - burn)/skip]] <- tau21est
         tau31ls[[(itr - burn)/skip]] <- tau31est
+        tau32ls[[(itr - burn)/skip]] <- tau32est
+        tau23ls[[(itr - burn)/skip]] <- tau23est
       }
     }
     end_time <- Sys.time()    
@@ -390,20 +396,22 @@ scheme_mult <- function(y, x, x_test, z, gs, add, skip=5, sigma = NULL, sigma_k=
   gammas <- Reduce('+', gammals)/length(gammals)
   sigmas <- Reduce('+', sigmals)/length(sigmals)
   mus <- Reduce('+', muls)/length(muls)
-  f1hat <- Reduce('+', f1ls)/length(f1ls)
-  f2hat <- Reduce('+', f2ls)/length(f2ls)
-  f3hat <- Reduce('+', f3ls)/length(f3ls)
+  #f1hat <- Reduce('+', f1ls)/length(f1ls)
+  #f2hat <- Reduce('+', f2ls)/length(f2ls)
+  #f3hat <- Reduce('+', f3ls)/length(f3ls)
   
   #Store final samples in list
   f_list <- list(theta_est = thetas,
                  gamma_est = gammas,
                  sigma_est = sigmas,
                  mu_est = mus,
-                 f1est = f1hat,
-                 f2est = f2hat,
-                 f3est = f3hat,
+                 f1est = f1ls,
+                 f2est = f2ls,
+                 f3est = f3ls,
                  tau21 = tau21ls, 
-                 tau31 = tau31ls
+                 tau31 = tau31ls,
+                 tau32 = tau32ls, 
+                 tau23 = tau23ls
   )
   
   return(f_list)

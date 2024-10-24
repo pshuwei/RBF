@@ -84,12 +84,12 @@ f3 <- (f20 + f30)/2 + f10/3
 rbf_ls <- list()
 
 #Create dataframes for use of BLP estimation
-results21 <- results31 <- results21ci <- results31ci <- results21coef <- results31coef <- 
+results21ci <- results31ci <- results21coef <- results31coef <- 
   data.frame(intercept = numeric(0), sbp = numeric(0), bicar = numeric(0),
     na = numeric(0), age = numeric(0), weight = numeric(0), k = numeric(0),
     map = numeric(0))
 
-reps <- 10
+reps <- 1
 
 for (rep in 1:reps) {
   set.seed(rep)
@@ -131,19 +131,20 @@ for (rep in 1:reps) {
         results21coef[rep, ] <- colMeans(blp21)
         #Get the posterior credible intervals
         quantiles <- quantile(blp21[, j], c(0.025, 0.975))
-        #Store whether the coefficient is significant
-        results21[rep, j] <- ifelse(quantiles[1] <= 0 & 0 <= quantiles[2],
-            0, 1)
         #Obtain the actual credible intervals
-        results21ci[rep, j] <- paste("(", round(quantiles[1], 3), ",", round(quantiles[2],
+        results21ci[rep, j] <- paste("(", round(quantiles[1], 3), ", ", round(quantiles[2],
             3), ")", sep = "")
         
         #Repeat for \tau_31
         results31coef[rep, ] <- colMeans(blp31)
         quantiles <- quantile(blp31[, j], c(0.025, 0.975))
-        results31[rep, j] <- ifelse(quantiles[1] <= 0 & 0 <= quantiles[2],
-            0, 1)
-        results31ci[rep, j] <- paste("(", round(quantiles[1], 3), ",", round(quantiles[2],
+        results31ci[rep, j] <- paste("(", round(quantiles[1], 3), ", ", round(quantiles[2],
             3), ")", sep = "")
     }
 }
+
+tab4.2_blp <- cbind(t(rbind(round(results21coef, 2), results21ci)),
+                    t(rbind(round(results31coef,2), results31ci)))
+colnames(tab4.2_blp) <- c("tau_21 BLP", "tau_21 95% CI", "tau_31 BLP", "tau_31 95% CI")
+
+View(tab4.2_blp)
