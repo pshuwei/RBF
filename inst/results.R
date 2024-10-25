@@ -2,11 +2,7 @@
 
 # We provide the Subject ID and Treatment Group based on the usage of only mechanical ventilation (group 1), only vasopressor (group 2), and both (group 3)
 
-#if file is .rda format
-load("rbf_mimic_cohort.rda")
-
-#if file is .csv format
-#data <- read.csv("rbf_mimic_cohort.csv")
+data <- read.csv("rbf_mimic_cohort.csv")
 
 #### Simulation Case 1 (Section 4.1) ####
 
