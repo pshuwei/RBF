@@ -3,62 +3,7 @@ library(mvtnorm)
 library(grf)
 source("../R/rbf.R")
 
-# getting mimic dataset for testing
-#load(file='../data/dataset.rda')
-data(dataset)
-
-dataset2 <- dataset %>%
-    group_by(subject_id) %>%
-  #needs to have more than 12 observations
-    filter(n() >= 12) %>%
-  #discharged to HOME
-    filter(any(discharge_location == "HOME")) %>%
-  #selecting patients, time, and predictors of interest
-    select(subject_id, charttime, sbp, bicar, na, age, weight, k, map, 
-           los_icu, sofa, vent_ind, vaso_ind) %>%
-  #creating treatment groups based on whether or they had a vasopressor and/or ventilation
-    mutate(trt_group = case_when(any(vent_ind) & any(vaso_ind) ~ "1", 
-                                 any(vent_ind) & is.na(vaso_ind) ~ "2", 
-                                 is.na(vent_ind) & any(vaso_ind) ~ "3", 
-                                 is.na(vent_ind) & is.na(vaso_ind) ~ NA)) %>%
-  #remove those that did not use either
-    filter(!all(is.na(trt_group))) %>%
-  #only collect the first 12 hours
-    filter(charttime <= 12)
-
-dataset2$trt_group <- as.numeric(dataset2$trt_group)
-
-#apply the log transformation on the predictors
-dataset2[, 3:9] <- apply(dataset2[, 3:9], 2, function(x) log(x))
-
-#collect their average predictor values during their 12 hours
-dataset3 <- dataset2 %>%
-    group_by(subject_id) %>%
-    summarize(across(sbp:map, list(mean = ~mean(., na.rm = T))))
-
-dataset3[sapply(dataset3, is.nan)] <- NA
-
-#obtaining their 12th hour LOS ICU and SOFA scores
-dataset4 <- dataset2 %>%
-    group_by(subject_id) %>%
-    arrange(charttime) %>%
-    slice_tail(n = 1) %>%
-    select(subject_id, los_icu, sofa, trt_group)
-
-mimic_data <- dataset3 %>%
-    left_join(dataset4)
-
-#perform imputation on the data
-imp <- mice::mice(mimic_data)
-imp_base <- mice::complete(imp)
-
-#apply the min-max transformation on the predictors
-imp_base[, 2:8] <- apply(imp_base[, 2:8], 2, function(x) (x - min(x))/(max(x) -
-    min(x)))
-
-n <- nrow(imp_base)
-
-mimic_train <- imp_base
+mimic_train <- data
 
 #obtain matrix for predictors
 x <- as.matrix(mimic_train[, 2:8])
