@@ -10,6 +10,9 @@ load("rbf_mimic_cohort.rda")
 
 #### Simulation Case 1 (Section 4.1) ####
 
+#N is currently for 180 sample size, need to manually adjust the sample size if desired.
+#Runs for 50 replications
+
 source("rbf_4.1_mse.R")
 
 #### Simulation Case 2 (Section 4.2) ####
@@ -17,6 +20,8 @@ source("rbf_4.1_mse.R")
 # We borrow seven predictors from the MIMIC data based on Employing the marginal screening approach from \cite{xue2017robust} based on Length of Stay in the ICU and SOFA Score
 
 # Predictors are age, weight, bicarbonate level, sodium level, systolic blood pressure (SBP), potassium level, and mean arterial pressure (MAP)
+
+#Runs for 50 replications
 
 source("rbf_4.2_mse.R")
 source("rbf_4.2_blp.R")
