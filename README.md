@@ -23,4 +23,4 @@ Finally `results.R` is the code to run all the above code as well as obtain the 
 
 Our data comes from the Medical Information Mart for Intensive Care III (MIMIC-III) data. The data are not publicly available due to privacy or ethical restrictions, but can be accessed freely by submitting an application to PhysioNet. 
 
-The 'data' folder contains the rbf_mimic_cohort.csv file which contains the subject IDs and the corresponding treatment groups we assign them based on the paper.
+The 'data' folder contains the `rbf_mimic_cohort.csv` file which contains the subject IDs and the corresponding treatment groups we assign them based on the paper.
