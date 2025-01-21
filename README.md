@@ -5,9 +5,11 @@ This is an R package for the treatment effect estimation using radial basis func
 ## How to install the R package
 devtools::install_github("pshuwei/RBF")
 
-## What the R package contains:
+## R Folder:
 
 The 'R' folder contains the coded methodology of our proposed method in Section 3 of the paper.
+
+## Inst Folder
 
 The 'inst' folder contains all simulation code that we discuss in the paper.
 
@@ -19,7 +21,7 @@ The `rbf_4.2_threshold.R` contains the simulation code discussed in Section 4.2 
 
 Finally `results.R` is the code to run all the above code as well as obtain the MIMIC cohort ids.
 
-### MIMIC Data
+### Data Folder
 
 Our data comes from the Medical Information Mart for Intensive Care III (MIMIC-III) data. The data are not publicly available due to privacy or ethical restrictions, but can be accessed freely by submitting an application to PhysioNet. 
 
