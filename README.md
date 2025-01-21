@@ -7,6 +7,8 @@ devtools::install_github("pshuwei/RBF")
 
 ## What the R package contains:
 
+The 'R' folder contains the coded methodology of our proposed method in Section 3 of the paper.
+
 The 'inst' folder contains all simulation code that we discuss in the paper.
 
 The rbf_4.1_mse.R and rbf_4.2_mse.R code contains the simulation code discussed in Section 4.1 and 4.2 regarding the simulation settings and MSE results.
