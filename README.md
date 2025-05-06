@@ -1,6 +1,6 @@
 # Multi-treatment RBF-net
 
-This is an R package for the treatment effect estimation using radial basis function (RBF)-nets with shared neurons based on our paper *Individualized Multi-Treatment Response Curves Estimation using RBF-net with Shared Neurons*
+This is an R package for the treatment effect estimation using radial basis function (RBF)-nets with shared neurons based on our paper *Individualized Multi-Treatment Response Curves Estimation using RBF-net with Shared Neurons* (Biometrics: https://doi.org/10.1093/biomtc/ujaf019) 
 
 ## How to install the R package
 devtools::install_github("pshuwei/RBF")
